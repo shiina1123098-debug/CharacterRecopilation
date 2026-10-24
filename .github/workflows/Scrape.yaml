@@ -1,0 +1,134 @@
+name: Generar personajes (desc + asc + manga + merge)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: generar-personajes
+  cancel-in-progress: false
+
+jobs:
+  generar-desc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: personajes-characters-desc
+          path: .
+      - name: Generar (characters · FAVOURITES_DESC)
+        env:
+          MODE: generate
+          SOURCE: characters
+          SORT_ORDER: desc
+          PAGINAS_A_BUSCAR: "4000"
+          PAUSA_ENTRE_PAGINAS: "0.6"
+        run: python generar_personajes.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: personajes-characters-desc
+          path: |
+            new_characters_characters_desc.json
+            checkpoint_characters_desc.json
+
+  generar-asc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: personajes-characters-asc
+          path: .
+      - name: Generar (characters · FAVOURITES asc)
+        env:
+          MODE: generate
+          SOURCE: characters
+          SORT_ORDER: asc
+          PAGINAS_A_BUSCAR: "4000"
+          PAUSA_ENTRE_PAGINAS: "0.6"
+        run: python generar_personajes.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: personajes-characters-asc
+          path: |
+            new_characters_characters_asc.json
+            checkpoint_characters_asc.json
+
+  generar-manga:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: personajes-manga-desc
+          path: .
+      - name: Generar (manhwa/manhua/manga)
+        env:
+          MODE: generate
+          SOURCE: manga
+          SORT_ORDER: desc
+          PAGINAS_A_BUSCAR: "2000"
+          PAUSA_ENTRE_PAGINAS: "0.9"
+        run: python generar_personajes.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: personajes-manga-desc
+          path: |
+            new_characters_manga_desc.json
+            checkpoint_manga_desc.json
+
+  merge:
+    needs: [generar-desc, generar-asc, generar-manga]
+    if: always() && (needs.generar-desc.result == 'success' || needs.generar-asc.result == 'success' || needs.generar-manga.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: personajes-characters-desc
+          path: .
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: personajes-characters-asc
+          path: .
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: personajes-manga-desc
+          path: .
+      - name: Merge final
+        env:
+          MODE: merge
+        run: python generar_personajes.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: personajes-final
+          path: new_characters.json
